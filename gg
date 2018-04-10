@@ -187,7 +187,7 @@ handle_new_cmd() {
   echo "$FUNDING" > "$EPOCH_TIME.dat"
   git add "$EPOCH_TIME.dat"
   printf "%s" "$SECRET" > SECRET.txt
-  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg --clearsign)
+  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 --clearsign)
   printf "%s" "$signum" > signum.asc
   hashnum=$(printf "%s" "$signum" | sha512sum | tr -d -)
   echo $hashnum > hashnum.txt
@@ -243,7 +243,7 @@ handle_guess_cmd() {
   echo "$FUNDING"
   echo "$FUNDING" > "$EPOCH_TIME.dat"
   git add "$EPOCH_TIME.dat"
-  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg --clearsign)
+  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 --clearsign)
   printf "%s" "$siguess" > guess.asc
   git add guess.asc
   git commit -m "guess"
@@ -293,7 +293,7 @@ template. )\n"
 #-------------------user prep and command section--------------------------
 
 gpgkeygen() {
-  echo "The gpg --gen-key walk-through is about to be run."
+  echo "The gpg2 --gen-key walk-through is about to be run."
   echo "For GitGuild to function, a dual key (RSA and RSA or DSA and Elgamal)"
   echo "is required. Other parameters (name, email) should match your"
   echo "git identity."
@@ -311,9 +311,9 @@ gpgkeygen() {
   read readyono
   echo
   if [ "$( echo "$readyono" | grep '[yY].*' )" != "" ]; then
-      gpg --gen-key
+      gpg2 --gen-key
   else
-    user_cfg_error "signingkey" "gpg key id"
+    user_cfg_error "signingkey" "gpg2 key id"
   fi
 }
 
@@ -343,10 +343,10 @@ guess_cfg_from_authors_by_value() {
 
 print_sig_guesses() {
   if [ "$USER_EMAIL" != "" ]; then
-    keylist=$( gpg --list-secret-keys --fast-list-mode "$USER_EMAIL" | grep sec | \
+    keylist=$( gpg2 --list-secret-keys --fast-list-mode "$USER_EMAIL" | grep sec | \
       grep -o "[A-Z0-9]\{8\} " )
   elif [ "$USER_NAME" != "" ]; then
-    keylist=$( gpg --list-secret-keys --fast-list-mode "$USER_NAME" | grep sec | \
+    keylist=$( gpg2 --list-secret-keys --fast-list-mode "$USER_NAME" | grep sec | \
       grep -o "[A-Z0-9]\{8\} " )
   fi
   if [ "$keylist" != "" ]; then
@@ -425,7 +425,7 @@ get_or_set_cfg_value() {
 get_or_set_all_cfg_values() {
   get_or_set_cfg_value "name" "user name"
   get_or_set_cfg_value "email" "email"
-  get_or_set_cfg_value "signingkey" "gpg key id"
+  get_or_set_cfg_value "signingkey" "gpg2 key id"
   git config --global commit.gpgsign true
 }
 
