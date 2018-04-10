@@ -125,7 +125,7 @@ __main() {
       COMMAND="guess"
       cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )\n"
       COMMAND="reveal"
-      cmdl="$cmdl$( command_usage_line Reveal the results of a game. )\n"
+      cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )\n"
       COMMAND="audit"
       cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )\n"
       echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
@@ -205,7 +205,6 @@ handle_guess_cmd() {
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
-      mkdir "LOTTERY/$GINSTANCE"
       cd "LOTTERY/$GINSTANCE"
     fi
   else
@@ -253,41 +252,56 @@ handle_guess_cmd() {
 # $1 is now sub-command
 # $@ are params for the sub-command
 handle_reveal_cmd() {
-  case $1 in
-    create)
-      shift
-      create_patch "$@"
-      ;;
-    build)
-      shift
-      tname="$1"
-      shift
-      if [ "$1" != "" ] && [ "$(echo "$1" | grep .patch$ )" = "" ]; then
-        phash="$1"
-        shift
-        build_tpl "$tname" "$phash" "$@"
-      else
-        build_tpl "$tname" "HEAD" "$@"
-      fi
-      ;;
-    list)
-      if [ "$2" = "" ]; then
-        ls "$GG_DIR"/*/template/*.patch
-      else
-        shift
-        list_tx_tag_templates "$@"
-      fi
-      ;;
-    *)
-      cmdl="$( subcommand_usage_line create Create a stub template for future \
-      transactions. )\n"
-      cmdl="$cmdl$( subcommand_usage_line build \<patch file\> Build the given \
-template. )\n"
-      cmdl="$cmdl$( subcommand_usage_line list List the available templates. )\n"
-      echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
+  pulled=$( git pull origin master 2>&1 )
+
+  if [ "$1" != "" ] ; then
+    GINSTANCE=$1
+    if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
+      echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
-      ;;
-  esac
+    else
+      cd "LOTTERY/$GINSTANCE"
+    fi
+  else
+    cmdl="$( subcommand_usage_line reveal Reveal answer and end the game. )\n"
+    echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
+    exit
+  fi
+
+  BET=$( cat BET.txt )
+  MAX=$( cat MAX.txt )
+  WINNINGS=$( bc <<< "scale=8; $BET*($MAX+1)" | sed 's/^\./0./' )
+  DEALER=$( cat DEALER.txt )
+  PLAYER=$( cat PLAYER.txt )
+  VERIFIED=$( gpg2 --status-fd --verify guess.asc 2>&1 )
+  GUESS=$( cat guess )
+  ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" )
+  if [ "$GUESS" = "" ] ; then
+    echo "invalid guess"
+    exit
+  elif [ "$GUESS" = "$ANSWER" ] ; then
+    echo "PLAYER wins"
+    WINNER=$PLAYER
+    echo
+  else
+    echo "DEALER wins"
+    WINNER=$DEALER
+    echo
+  fi
+
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
+  CLAIM=$"$TDATE * GG LOTTERY $GINSTANCE CLAIM
+    ; timestamp: $EPOCH_TIME
+    gg:Games:LOTTERY:$GINSTANCE    -$WINNINGS GG
+    gg:Games:LOTTERY:$GINSTANCE:$WINNER    $WINNINGS GG"
+  echo "$CLAIM"
+  echo "$CLAIM" > "$EPOCH_TIME.dat"
+  git add "$EPOCH_TIME.dat"
+
+  git add SECRET.txt signum.asc guess
+  git commit -m "reveal"
+  git push origin master
 }
 
 #-------------------user prep and command section--------------------------
