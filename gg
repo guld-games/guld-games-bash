@@ -223,7 +223,7 @@ handle_new_cmd() {
 
 # $1 is now sub-command (build, check)
 handle_guess_cmd() {
-  git pull origin master
+  pulled=$( git pull origin master )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
     if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
@@ -306,7 +306,8 @@ handle_reveal_cmd() {
   PLAYER=$( cat PLAYER.txt )
   VERIFIED=$( gpg2 --status-fd --verify guess.asc 2>&1 )
   GUESS=$( cat guess )
-  ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" )
+  SECRET=$( cat SECRET.TXT )
+  ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" )
   if [ "$GUESS" = "" ] ; then
     echo "invalid guess"
     exit
