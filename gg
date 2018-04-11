@@ -138,7 +138,7 @@ __main() {
       cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )
 "
       COMMAND="reveal"
-      cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
+      cmdl="$cmdl$( command_usage_line \<game-name\> Reveal answer and end the game. )
 "
 #       COMMAND="audit"
 #       cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )
