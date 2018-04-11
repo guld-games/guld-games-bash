@@ -71,32 +71,32 @@ fi
 
 #------------------------CLI Helpers--------------------------
 USAGE_PREAMBLE="
-\t$PROG_NAME\tPlay guld games
+  $PROG_NAME  Play guld games
 
-\tUsage:
+  Usage:
 "
-GENERAL_USAGE="\t\t$PROG_NAME help\t\tShow the general help.
-\t\t$PROG_NAME version\tShow the program version.
+GENERAL_USAGE="    $PROG_NAME help    Show the general help.
+    $PROG_NAME version  Show the program version.
 
-\tOptions:
+  Options:
 "
 
-USAGE_SUFFIX="\t\t$PROG_NAME <cmd> -h\tShow command help details."
+USAGE_SUFFIX="    $PROG_NAME <cmd> -h  Show command help details."
 
 command_usage_line() {
-  printf "\t\t%s %s\t%s" "$PROG_NAME" "$COMMAND" "$*"
+  printf "    %s %s  %s" "$PROG_NAME" "$COMMAND" "$*"
 }
 subcommand_usage_line() {
   SUBCMD=$1
   shift
-  printf "\t\t%s %s\t%s\t%s" "$PROG_NAME" "$COMMAND" "$SUBCMD" "$*"
+  printf "    %s %s  %s  %s" "$PROG_NAME" "$COMMAND" "$SUBCMD" "$*"
 }
 # $1 the arg string
 # $2 the help
 command_option_line() {
   OPTSTR=$1
   shift
-  printf "\t\t%s\t\t%s" "$OPTSTR" "$*"
+  printf "    %s    %s" "$OPTSTR" "$*"
 }
 
 
@@ -128,13 +128,17 @@ __main() {
       ;;
     *)
       COMMAND="new"
-      cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Create a new game. )\n"
+      cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Create a new game. )
+"
       COMMAND="guess"
-      cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )\n"
+      cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )
+"
       COMMAND="reveal"
-      cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )\n"
+      cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
+"
       COMMAND="audit"
-      cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )\n"
+      cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )
+"
       echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
       exit
       ;;
