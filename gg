@@ -1,0 +1,487 @@
+#!/bin/bash
+#MIT License
+#
+#Copyright (c) 2016 gitguild
+#Copyright (c) 2018 Zimmi S.A.
+#
+#Permission is hereby granted, free of charge, to any person obtaining a copy
+#of this software and associated documentation files (the "Software"), to deal
+#in the Software without restriction, including without limitation the rights
+#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#copies of the Software, and to permit persons to whom the Software is
+#furnished to do so, subject to the following conditions:
+#
+#The above copyright notice and this permission notice shall be included in all
+#copies or substantial portions of the Software.
+#
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#SOFTWARE.
+
+VERSION=0.0.1
+
+ORIG_IFS=$IFS
+
+# Save $0 so we can shift
+# $1 must be a cmd.
+export PROG_NAME=$( echo "$0" | grep -o "[^/]*$" )
+export COMMAND=$1
+
+# Git user configuration is a pre-requisite of this script.
+export USER_NAME=$( git config user.username )
+export USER_EMAIL=$( git config user.email )
+export USER_SIGNINGKEY=$( git config user.signingkey )
+USER_IS_CONFIGURED=true
+
+GG_GULD_RATE=7100
+
+# gitolite user home, where repos are hosted
+# shellcheck disable=SC2116
+export GIT_HOME=$(echo ~git)
+
+# default working directory, where games are found!
+# TODO iup
+if [ "$GULD_HOME" = "" ]; then
+  export GG_DIR=$HOME"/ledger/GG"
+else
+  export GG_DIR=$GULD_HOME"/ledger/GG"
+fi
+if [ -d "$GG_DIR" ]; then
+  cd "$GG_DIR"
+fi
+
+# Normally this should be run inside such a git repo
+GIT_DIR=$( readlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
+
+# change to the root of any git dir for the duration of the script
+if [ -d "$GIT_DIR" ]; then
+  cd "$GIT_DIR"
+fi
+
+# detect OS
+MYOS=$( uname )
+if ! [ $MYOS = "Linux" ] && ! [ $MYOS = "Darwin" ]; then
+  echo "only Linux and Darwin (MacOS) are supported"
+  exit 1
+fi
+
+#------------------------CLI Helpers--------------------------
+USAGE_PREAMBLE="
+  $PROG_NAME  Play guld games
+
+  Usage:
+"
+GENERAL_USAGE="    $PROG_NAME help    Show the general help.
+    $PROG_NAME version  Show the program version.
+
+  Options:
+"
+
+USAGE_SUFFIX="    $PROG_NAME <cmd> -h  Show command help details."
+
+command_usage_line() {
+  printf "    %s %s  %s" "$PROG_NAME" "$COMMAND" "$*"
+}
+subcommand_usage_line() {
+  SUBCMD=$1
+  shift
+  printf "    %s %s  %s  %s" "$PROG_NAME" "$COMMAND" "$SUBCMD" "$*"
+}
+# $1 the arg string
+# $2 the help
+command_option_line() {
+  OPTSTR=$1
+  shift
+  printf "    %s    %s" "$OPTSTR" "$*"
+}
+
+
+#------------------------CLI Handlers-----------------------------
+
+# The main handler. Takes raw user input from command line.
+# $1 is the command
+__main() {
+  case $1 in
+    new)
+      shift
+      handle_new_cmd "$@"
+      ;;
+    guess)
+      shift
+      handle_guess_cmd "$@"
+      ;;
+    reveal)
+      shift
+      handle_reveal_cmd "$@"
+      ;;
+    audit)
+      shift
+      handle_audit_cmd "$@"
+      ;;
+    ledger)
+      shift
+      handle_ledger_cmd "$@"
+      ;;
+    *)
+      COMMAND="new"
+      cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Create a new game. )
+"
+      COMMAND="guess"
+      cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )
+"
+      COMMAND="reveal"
+      cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
+"
+      COMMAND="audit"
+      cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )
+"
+      echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
+      exit
+      ;;
+  esac
+}
+
+handle_new_cmd() {
+  git pull origin master
+  if [ "$1" != "" ] ; then
+    GINSTANCE=$1
+    if [ -d "LOTTERY/$GINSTANCE" ] ; then
+      echo "Game $GINSTANCE already exists. Pick another name."
+      exit
+    else
+      mkdir "LOTTERY/$GINSTANCE"
+      cd "LOTTERY/$GINSTANCE"
+    fi
+  else
+    cmdl="$( subcommand_usage_line new \<game-name\> \<max\> \<bet\> Create a new game. )\n"
+    echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
+    exit
+  fi
+  if [[ $2 =~ ^[0-9]+$ ]] ; then
+    MMAX=$(($2>65535?65535:$2))
+    MAX=$(($MMAX<1?1:$MMAX))
+  else
+    echo "error: Max $2 not a number" >&2
+    exit 1
+  fi
+  if ! [[ $3 =~ ^[0-9]+[.]{0,1}[0-9]+$ ]] ; then
+    echo "error: Bet not a number" >&2; exit 1
+  else
+    BET=$3
+    GGBET=$( bc <<< "scale=8; $BET*$MAX" | sed 's/^\./0./' )
+    GULDBETF=$( bc <<< "scale=8; $GGBET/$GG_GULD_RATE" | sed 's/^\./0./' )
+    # round up to nearest GULD bit
+    if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
+      GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
+    else
+      GULDBET=$( printf "%.8f\n" $GULDBETF | bc | sed 's/^\./0./' )
+    fi
+  fi
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
+  if [ $MYOS = "Linux" ] ; then
+    SECRET=$( shuf -i 0-$MAX -n 1 )
+  elif [ $MYOS = "Darwin" ] ; then
+    SECRET=$( gshuf -i 0-$MAX -n 1 )
+  fi
+  FUNDING=$"$TDATE * GG LOTTERY $GINSTANCE FUNDING
+    ; timestamp: $EPOCH_TIME
+    guld:Income:register:group:gg:$USER_NAME    $GULDBET GULD
+    guld:Income:register:group:gg    -$GULDBET GULD
+    gg:Games:LOTTERY:$GINSTANCE   $GGBET GG
+    gg:Liabilities    -$GGBET GG"
+  echo "$FUNDING"
+  echo $USER_NAME > DEALER.txt
+  git add DEALER.txt
+  echo $BET > BET.txt
+  git add BET.txt
+  echo $MAX > MAX.txt
+  git add MAX.txt
+  echo "$FUNDING" > "$EPOCH_TIME.dat"
+  git add "$EPOCH_TIME.dat"
+  printf "%s" "$SECRET" > SECRET.txt
+  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 --clearsign)
+  printf "%s" "$signum" > signum.asc
+  if [ $MYOS = "Linux" ] ; then
+    hashnum=$(printf "%s" "$signum" | sha512sum | tr -d -)
+  elif [ $MYOS = "Darwin" ] ; then
+    hashnum=$(printf "%s" "$signum" | shasum -a 512 | tr -d -)
+  fi
+  echo $hashnum > hashnum.txt
+  git add hashnum.txt
+  git commit -m "new game"
+  git push origin master
+}
+
+# $1 is now sub-command (build, check)
+handle_guess_cmd() {
+  git pull origin master
+  if [ "$1" != "" ] ; then
+    GINSTANCE=$1
+    if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
+      echo "Game $GINSTANCE does not exist. Pick an open game."
+      exit
+    else
+      cd "LOTTERY/$GINSTANCE"
+    fi
+  else
+    cmdl="$( subcommand_usage_line guess \<game-name\> \[guess\] Guess the number for a game )\n"
+    echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
+    exit
+  fi
+
+  BET=$( cat BET.txt )
+  MAX=$( cat MAX.txt )
+
+  if [[ $2 =~ ^[0-9]+$ ]] ; then
+    MGUESS=$(($2>$MAX?$MAX:$2))
+    GUESS=$(($MGUESS<0?0:$MGUESS))
+  else
+    if [ $MYOS = "Linux" ] ; then
+      GUESS=$( shuf -i 0-$MAX -n 1 )
+    elif [ $MYOS = "Darwin" ] ; then
+      GUESS=$( gshuf -i 0-$MAX -n 1 )
+    fi
+  fi
+
+  GULDBETF=$( bc <<< "scale=8; $BET/$GG_GULD_RATE" | sed 's/^\./0./' )
+  # round up to nearest GULD bit
+  if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
+    GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
+  else
+    GULDBET=$( printf "%.8f\n" $GULDBETF | bc | sed 's/^\./0./' )
+  fi
+  echo $USER_NAME > PLAYER.txt
+  git add PLAYER.txt
+
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
+  FUNDING=$"$TDATE * GG LOTTERY $GINSTANCE FUNDING
+    ; timestamp: $EPOCH_TIME
+    guld:Income:register:group:gg:$USER_NAME    $GULDBET GULD
+    guld:Income:register:group:gg    -$GULDBET GULD
+    gg:Games:LOTTERY:$GINSTANCE   $BET GG
+    gg:Liabilities    -$BET GG"
+  echo "$FUNDING"
+  echo "$FUNDING" > "$EPOCH_TIME.dat"
+  git add "$EPOCH_TIME.dat"
+  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 --clearsign)
+  printf "%s" "$siguess" > guess.asc
+  git add guess.asc
+  git commit -m "guess"
+  git push origin master
+}
+
+# $1 is now sub-command
+# $@ are params for the sub-command
+handle_reveal_cmd() {
+  pulled=$( git pull origin master 2>&1 )
+
+  if [ "$1" != "" ] ; then
+    GINSTANCE=$1
+    if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
+      echo "Game $GINSTANCE does not exist. Pick an open game."
+      exit
+    else
+      cd "LOTTERY/$GINSTANCE"
+    fi
+  else
+    cmdl="$( subcommand_usage_line reveal Reveal answer and end the game. )\n"
+    echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
+    exit
+  fi
+
+  BET=$( cat BET.txt )
+  MAX=$( cat MAX.txt )
+  WINNINGS=$( bc <<< "scale=8; $BET*($MAX+1)" | sed 's/^\./0./' )
+  DEALER=$( cat DEALER.txt )
+  PLAYER=$( cat PLAYER.txt )
+  VERIFIED=$( gpg2 --status-fd --verify guess.asc 2>&1 )
+  GUESS=$( cat guess )
+  ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" )
+  if [ "$GUESS" = "" ] ; then
+    echo "invalid guess"
+    exit
+  elif [ "$GUESS" = "$ANSWER" ] ; then
+    echo "PLAYER wins"
+    WINNER=$PLAYER
+    echo
+  else
+    echo "DEALER wins"
+    WINNER=$DEALER
+    echo
+  fi
+
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
+  CLAIM=$"$TDATE * GG LOTTERY $GINSTANCE CLAIM
+    ; timestamp: $EPOCH_TIME
+    gg:Games:LOTTERY:$GINSTANCE    -$WINNINGS GG
+    gg:Games:LOTTERY:$GINSTANCE:$WINNER    $WINNINGS GG"
+  echo "$CLAIM"
+  echo "$CLAIM" > "$EPOCH_TIME.dat"
+  git add "$EPOCH_TIME.dat"
+
+  git add SECRET.txt signum.asc guess
+  git commit -m "reveal"
+  git push origin master
+}
+
+#-------------------user prep and command section--------------------------
+
+gpgkeygen() {
+  echo "The gpg2 --gen-key walk-through is about to be run."
+  echo "For GitGuild to function, a dual key (RSA and RSA or DSA and Elgamal)"
+  echo "is required. Other parameters (name, email) should match your"
+  echo "git identity."
+  echo
+  echo "It is highly recommended to create a passphrase for your security!"
+  echo "Your passphrase is what stops someone using your machine"
+  echo "from stealing your identity."
+  echo "Use a strong password, back it up and create a revocation key."
+  echo
+  echo "The developers recommend using a free and open source password manager."
+  echo "The pass program is used internally, and if you like the command line,"
+  echo "it could be for you even outside of gitguild."
+  echo ""
+  echo "OK, ready to generate keys?"
+  read readyono
+  echo
+  if [ "$( echo "$readyono" | grep '[yY].*' )" != "" ]; then
+      gpg2 --gen-key
+  else
+    user_cfg_error "signingkey" "gpg2 key id"
+  fi
+}
+
+# $1 is the official git config format
+# $2 is the user understandable format
+user_cfg_error() {
+  echo "OK, to try setting your git $1 at any time, run:" 1>&2
+  echo 1>&2
+  echo "gitguild user status" 1>&2
+  USER_IS_CONFIGURED=false
+}
+
+# $1 is the username to search for
+guess_cfg_from_authors_by_value() {
+  if [ -f ./AUTHORS ]; then
+    cfginfo=$( grep "$1" ./AUTHORS )
+    if [ "$cfginfo" != "" ]; then
+      USER_NAME="$( echo "$cfginfo" | grep -o '^[^ ]*')"
+      git config --global --add user.email "$USER_EMAIL"
+      USER_EMAIL="$( echo "$cfginfo" | grep -o ' [^ ]* ' | tr -d ' ' )"
+      git config --global --add user.email "$USER_EMAIL"
+      USER_SIGNINGKEY="$( echo "$cfginfo" | grep -o '[^ ]*$' )"
+      git config --global --add user.signingkey "$USER_SIGNINGKEY"
+    fi
+  fi
+}
+
+print_sig_guesses() {
+  if [ "$USER_EMAIL" != "" ]; then
+    keylist=$( gpg2 --list-secret-keys --fast-list-mode "$USER_EMAIL" | grep sec | \
+      grep -o "[A-Z0-9]\{8\} " )
+  elif [ "$USER_NAME" != "" ]; then
+    keylist=$( gpg2 --list-secret-keys --fast-list-mode "$USER_NAME" | grep sec | \
+      grep -o "[A-Z0-9]\{8\} " )
+  fi
+  if [ "$keylist" != "" ]; then
+    echo "Detected one or more keys matching your name or email."
+    echo "The one you want is probably among these."
+    echo "$keylist"
+    echo
+  elif [ "$USER_EMAIL" != "" ] && [ "$USER_NAME" != "" ]; then
+    echo "Could not detect a key matching your name or email."
+    echo
+    gpgkeygen
+  fi
+}
+
+# $1 the git config name of the field
+get_cfg_by_name() {
+  case $1 in
+    name)
+      echo "$USER_NAME"
+      ;;
+    email)
+      echo "$USER_EMAIL"
+      ;;
+    signingkey)
+      echo "$USER_SIGNINGKEY"
+      ;;
+  esac
+}
+
+# $1 the git config name of the field
+# $2 the value to set
+set_cfg_by_name() {
+  case $1 in
+    name)
+      USER_NAME=$2
+      ;;
+    email)
+      USER_EMAIL=$2
+      ;;
+    signingkey)
+      USER_SIGNINGKEY=$2
+      ;;
+  esac
+}
+
+# $1 is the official git config format of the field name
+# $2 is the user understandable format
+get_or_set_cfg_value() {
+  if [ "$( get_cfg_by_name "$1" )" = "" ]; then
+    echo "WARNING: Git user.$1 not configured."
+    echo
+    if [ "$1" != "name" ] && [ "$( get_cfg_by_name "$1" )" = "" ]; then
+      # try to guess based on name
+      echo "guessing"
+      guess_cfg_from_authors_by_value "$USER_NAME"
+    fi
+    if [ "$( get_cfg_by_name "$1" )" = "" ] && [ "$1" = "signingkey" ]; then
+      print_sig_guesses
+    elif [ "$1" = "signingkey" ]; then
+      return
+    fi
+    if [ "$( get_cfg_by_name "$1" )" = "" ]; then
+      echo "Please enter your git $1 followed by [ENTER]"
+      read userval
+      if [ "$userval" != "" ]; then
+        git config --global --add user."$1" "$userval"
+        echo
+        set_cfg_by_name "$1" "$userval"
+      else
+        user_cfg_error "$2" "$3"
+      fi
+    fi
+  fi
+}
+
+get_or_set_all_cfg_values() {
+  get_or_set_cfg_value "name" "user name"
+  get_or_set_cfg_value "email" "email"
+  get_or_set_cfg_value "signingkey" "gpg2 key id"
+  git config --global commit.gpgsign true
+}
+
+
+#---------------tx (transaction) section----------------
+# Functions and handlers related to building, checking,
+# and managing transactions.
+
+# $1 remote name to check
+use_gitolite_push() {
+  if [ "$( git remote get-url "$1" | grep \"file://\")" != "" ] && [ "$USE_GITOLITE" = "true" ]; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+__main "$@"
