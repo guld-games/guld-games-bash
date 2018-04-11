@@ -54,9 +54,6 @@ if [ -d "$GG_DIR" ]; then
   cd "$GG_DIR"
 fi
 
-# Normally this should be run inside such a git repo
-GIT_DIR=$( readlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
-
 # change to the root of any git dir for the duration of the script
 if [ -d "$GIT_DIR" ]; then
   cd "$GIT_DIR"
@@ -64,7 +61,11 @@ fi
 
 # detect OS
 MYOS=$( uname )
-if ! [ $MYOS = "Linux" ] && ! [ $MYOS = "Darwin" ]; then
+if [ $MYOS = "Linux" ] ; then
+  GIT_DIR=$( readlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
+elif [ $MYOS = "Darwin" ] ; then
+  GIT_DIR=$( greadlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
+else
   echo "only Linux and Darwin (MacOS) are supported"
   exit 1
 fi
@@ -122,10 +123,13 @@ __main() {
       shift
       handle_audit_cmd "$@"
       ;;
-    ledger)
-      shift
-      handle_ledger_cmd "$@"
+    version)
+      echo $VERSION
       ;;
+    # ledger)
+    #   shift
+    #   handle_ledger_cmd "$@"
+    #   ;;
     *)
       COMMAND="new"
       cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Create a new game. )
@@ -136,9 +140,9 @@ __main() {
       COMMAND="reveal"
       cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
 "
-      COMMAND="audit"
-      cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )
-"
+#       COMMAND="audit"
+#       cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )
+# "
       echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
       exit
       ;;
@@ -204,7 +208,7 @@ handle_new_cmd() {
   echo "$FUNDING" > "$EPOCH_TIME.dat"
   git add "$EPOCH_TIME.dat"
   printf "%s" "$SECRET" > SECRET.txt
-  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 --clearsign)
+  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 -u $USER_SIGNINGKEY --clearsign)
   printf "%s" "$signum" > signum.asc
   if [ $MYOS = "Linux" ] ; then
     hashnum=$(printf "%s" "$signum" | sha512sum | tr -d -)
@@ -269,7 +273,7 @@ handle_guess_cmd() {
   echo "$FUNDING"
   echo "$FUNDING" > "$EPOCH_TIME.dat"
   git add "$EPOCH_TIME.dat"
-  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 --clearsign)
+  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 -u $USER_SIGNINGKEY --clearsign)
   printf "%s" "$siguess" > guess.asc
   git add guess.asc
   git commit -m "guess"
