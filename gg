@@ -62,6 +62,13 @@ if [ -d "$GIT_DIR" ]; then
   cd "$GIT_DIR"
 fi
 
+# detect OS
+MYOS=$( uname )
+if ! [ $MYOS = "Linux" ] && ! [ $MYOS = "Darwin" ]; then
+  echo "only Linux and Darwin (MacOS) are supported"
+  exit 1
+fi
+
 #------------------------CLI Helpers--------------------------
 USAGE_PREAMBLE="
 \t$PROG_NAME\tPlay guld games
@@ -172,7 +179,11 @@ handle_new_cmd() {
   fi
   EPOCH_TIME=$( date -u +%s )
   TDATE=$( date -u +%Y/%m/%d )
-  SECRET=$( shuf -i 0-$MAX -n 1 )
+  if [ $MYOS = "Linux" ] ; then
+    SECRET=$( shuf -i 0-$MAX -n 1 )
+  elif [ $MYOS = "Darwin" ] ; then
+    SECRET=$( gshuf -i 0-$MAX -n 1 )
+  fi
   FUNDING=$"$TDATE * GG LOTTERY $GINSTANCE FUNDING
     ; timestamp: $EPOCH_TIME
     guld:Income:register:group:gg:$USER_NAME    $GULDBET GULD
@@ -191,7 +202,11 @@ handle_new_cmd() {
   printf "%s" "$SECRET" > SECRET.txt
   signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 --clearsign)
   printf "%s" "$signum" > signum.asc
-  hashnum=$(printf "%s" "$signum" | sha512sum | tr -d -)
+  if [ $MYOS = "Linux" ] ; then
+    hashnum=$(printf "%s" "$signum" | sha512sum | tr -d -)
+  elif [ $MYOS = "Darwin" ] ; then
+    hashnum=$(printf "%s" "$signum" | shasum -a 512 | tr -d -)
+  fi
   echo $hashnum > hashnum.txt
   git add hashnum.txt
   git commit -m "new game"
@@ -222,7 +237,11 @@ handle_guess_cmd() {
     MGUESS=$(($2>$MAX?$MAX:$2))
     GUESS=$(($MGUESS<0?0:$MGUESS))
   else
-    GUESS=$( shuf -i 0-$MAX -n 1 )
+    if [ $MYOS = "Linux" ] ; then
+      GUESS=$( shuf -i 0-$MAX -n 1 )
+    elif [ $MYOS = "Darwin" ] ; then
+      GUESS=$( gshuf -i 0-$MAX -n 1 )
+    fi
   fi
 
   GULDBETF=$( bc <<< "scale=8; $BET/$GG_GULD_RATE" | sed 's/^\./0./' )
