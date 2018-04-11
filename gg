@@ -180,6 +180,8 @@ handle_new_cmd() {
     gg:Games:LOTTERY:$GINSTANCE   $GGBET GG
     gg:Liabilities    -$GGBET GG"
   echo "$FUNDING"
+  echo $USER_NAME > DEALER.txt
+  git add DEALER.txt
   echo $BET > BET.txt
   git add BET.txt
   echo $MAX > MAX.txt
@@ -230,6 +232,8 @@ handle_guess_cmd() {
   else
     GULDBET=$( printf "%.8f\n" $GULDBETF | bc | sed 's/^\./0./' )
   fi
+  echo $USER_NAME > PLAYER.txt
+  git add PLAYER.txt
 
   EPOCH_TIME=$( date -u +%s )
   TDATE=$( date -u +%Y/%m/%d )
