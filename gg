@@ -137,9 +137,9 @@ __main() {
       COMMAND="guess"
       cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )
 "
-      COMMAND="reveal"
-      cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
-"
+#       COMMAND="reveal"
+#       cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
+# "
 #       COMMAND="audit"
 #       cmdl="$cmdl$( subcommand_usage_line Audit a game\'s results. )
 # "
@@ -150,7 +150,7 @@ __main() {
 }
 
 handle_new_cmd() {
-  git pull origin master
+  pulled=$( git pull origin master 2>&1 )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
     if [ -d "LOTTERY/$GINSTANCE" ] ; then
@@ -200,15 +200,15 @@ handle_new_cmd() {
     gg:Liabilities    -$GGBET GG"
   echo "$FUNDING"
   echo $USER_NAME > DEALER.txt
-  git add DEALER.txt
+  pulled=$( git add DEALER.txt 2>&1 )
   echo $BET > BET.txt
-  git add BET.txt
+  pulled=$( git add BET.txt 2>&1 )
   echo $MAX > MAX.txt
-  git add MAX.txt
+  pulled=$( git add MAX.txt 2>&1 )
   echo "$FUNDING" > "$EPOCH_TIME.dat"
-  git add "$EPOCH_TIME.dat"
+  pulled=$( git add "$EPOCH_TIME.dat" 2>&1 )
   printf "%s" "$SECRET" > SECRET.txt
-  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 -u $USER_SIGNINGKEY --clearsign)
+  signum=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" | gpg2 -u $USER_SIGNINGKEY --clearsign 2>/dev/null )
   printf "%s" "$signum" > signum.asc
   if [ $MYOS = "Linux" ] ; then
     hashnum=$(printf "%s" "$signum" | sha512sum | tr -d -)
@@ -216,14 +216,25 @@ handle_new_cmd() {
     hashnum=$(printf "%s" "$signum" | shasum -a 512 | tr -d -)
   fi
   echo $hashnum > hashnum.txt
-  git add hashnum.txt
-  git commit -m "new game"
-  git push origin master
+  pulled=$( git add hashnum.txt 2>&1 )
+  pulled=$( git commit -m "new game" 2>&1 )
+  pulled=$( git push origin master 2>&1 )
+  end=$((SECONDS+18000)) # 30 minutes
+  while [ $SECONDS -lt $end ]; do
+    pulled=$( git pull origin master 2>&1 )
+    if [ -f guess.asc ] ; then
+      cd "$GG_DIR"
+      handle_reveal_cmd $GINSTANCE
+      break
+    else
+      sleep 5
+    fi
+  done
 }
 
 # $1 is now sub-command (build, check)
 handle_guess_cmd() {
-  pulled=$( git pull origin master )
+  pulled=$( git pull origin master 2>&1 )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
     if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
@@ -236,6 +247,17 @@ handle_guess_cmd() {
     cmdl="$( subcommand_usage_line guess \<game-name\> \[guess\] Guess the number for a game )\n"
     echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
     exit
+  fi
+
+  DEALER=$( cat DEALER.txt )
+  if [ $DEALER = $USER_NAME ] ; then
+    echo "Cannot guess for your own game."
+    exit 1
+  fi
+
+  if [ -f PLAYER.txt ] || [ -f guess.asc ] ; then
+    echo "This game is not open for more players."
+    exit 1
   fi
 
   BET=$( cat BET.txt )
@@ -257,10 +279,10 @@ handle_guess_cmd() {
   if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
     GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
   else
-    GULDBET=$( printf "%.8f\n" $GULDBETF | bc | sed 's/^\./0./' )
+    GULDBET=$( printf "%.8f\n" "$GULDBETF" | bc | sed 's/^\./0./' )
   fi
   echo $USER_NAME > PLAYER.txt
-  git add PLAYER.txt
+  pulled=$( git add PLAYER.txt 2>&1 )
 
   EPOCH_TIME=$( date -u +%s )
   TDATE=$( date -u +%Y/%m/%d )
@@ -272,12 +294,34 @@ handle_guess_cmd() {
     gg:Liabilities    -$BET GG"
   echo "$FUNDING"
   echo "$FUNDING" > "$EPOCH_TIME.dat"
-  git add "$EPOCH_TIME.dat"
-  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 -u $USER_SIGNINGKEY --clearsign)
+  pulled=$( git add "$EPOCH_TIME.dat"  2>&1 )
+  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 -u $USER_SIGNINGKEY --clearsign  2>/dev/null )
   printf "%s" "$siguess" > guess.asc
-  git add guess.asc
-  git commit -m "guess"
-  git push origin master
+  pulled=$( git add guess.asc 2>&1 )
+  pulled=$( git commit -m "guess" 2>&1 )
+  pulled=$( git push origin master 2>&1 )
+  end=$((SECONDS+18000)) # 30 minutes
+  while [ $SECONDS -lt $end ]; do
+    pulled=$( git pull origin master 2>&1 )
+    if [ -f "guess" ] ; then
+      GUESS=$( cat guess )
+      SECRET=$( cat SECRET.txt )
+      ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" )
+      if [ "$GUESS" = "" ] ; then
+        echo "invalid guess"
+        exit
+      elif [ "$GUESS" = "$ANSWER" ] ; then
+        echo "You won!"
+        WINNER=$PLAYER
+      else
+        echo "You lost."
+        WINNER=$DEALER
+      fi
+      break
+    else
+      sleep 5
+    fi
+  done
 }
 
 # $1 is now sub-command
@@ -304,21 +348,19 @@ handle_reveal_cmd() {
   WINNINGS=$( bc <<< "scale=8; $BET*($MAX+1)" | sed 's/^\./0./' )
   DEALER=$( cat DEALER.txt )
   PLAYER=$( cat PLAYER.txt )
-  VERIFIED=$( gpg2 --status-fd --verify guess.asc 2>&1 )
+  VERIFIED=$( gpg2 --status-fd --verify guess.asc 2>/dev/null )
   GUESS=$( cat guess )
-  SECRET=$( cat SECRET.TXT )
+  SECRET=$( cat SECRET.txt )
   ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" )
   if [ "$GUESS" = "" ] ; then
     echo "invalid guess"
     exit
   elif [ "$GUESS" = "$ANSWER" ] ; then
-    echo "PLAYER wins"
+    echo "You lost."
     WINNER=$PLAYER
-    echo
   else
-    echo "DEALER wins"
+    echo "You won!"
     WINNER=$DEALER
-    echo
   fi
 
   EPOCH_TIME=$( date -u +%s )
@@ -329,11 +371,11 @@ handle_reveal_cmd() {
     gg:Games:LOTTERY:$GINSTANCE:$WINNER    $WINNINGS GG"
   echo "$CLAIM"
   echo "$CLAIM" > "$EPOCH_TIME.dat"
-  git add "$EPOCH_TIME.dat"
+  pulled=$( git add "$EPOCH_TIME.dat" 2>&1 )
 
-  git add SECRET.txt signum.asc guess
-  git commit -m "reveal"
-  git push origin master
+  pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
+  pulled=$( git commit -m "reveal" 2>&1 )
+  pulled=$( git push origin master 2>&1 )
 }
 
 #-------------------user prep and command section--------------------------
