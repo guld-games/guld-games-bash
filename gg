@@ -66,7 +66,7 @@ if [ $MYOS = "Linux" ] ; then
 elif [ $MYOS = "Darwin" ] ; then
   GIT_DIR=$( greadlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
 else
-  echo "only Linux and Darwin (MacOS) are supported"
+  echo "only Linux and Darwin (macOS) are supported"
   exit 1
 fi
 
@@ -107,9 +107,25 @@ command_option_line() {
 # $1 is the command, $2 is the first argument to the command.
 __main() {
   case "$1:$2" in
-    *:-h)
-      echo "Help for individual options is forthcoming"
-      exit
+    new:-h)
+      COMMAND=$1
+      cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Creates a new game. )"
+      echo $cmdl
+      printf "\n%s" "Command-line arguments:"
+      printf "\n%s\n\n" "  game-name: must be a unique name."
+      printf "%s\n" "  max: generates a random number in the range of (0-max), inclusive."
+      printf "%s\n\n" "       Must be an integer, 1 or greater."
+      printf "%s\n" "  bet: the size of the wager."
+      printf "%s\n" "       As the game creator (dealer), you deposit (max * bet) to the contract."
+      ;;
+    guess:-h)
+      COMMAND=$1
+      cmdl="$( command_usage_line \<game-name\> \<guess\> Guess the number for a game. )"
+      echo $cmdl
+      printf "\n%s" "Command-line arguments:"
+      printf "\n%s\n\n" "  game-name: must be a unique name."
+      printf "%s\n" "  guess: your guess at the value of the game's secret number."
+      printf "%s\n" "         Must be an integer between 0 and the maximum for the game, inclusive."
       ;;
     new:*)
       shift
@@ -119,26 +135,28 @@ __main() {
       shift
       handle_guess_cmd "$@"
       ;;
-    reveal:*)
-      shift
-      handle_reveal_cmd "$@"
-      ;;
-    audit:*)
-      shift
-      handle_audit_cmd "$@"
-      ;;
     version:*)
       echo $VERSION
       ;;
-    # ledger)
-    #   shift
-    #   handle_ledger_cmd "$@"
-    #   ;;
+#    reveal:*)
+#      shift
+#      handle_reveal_cmd "$@"
+#      ;;
+#    audit:*)
+#      shift
+#      handle_audit_cmd "$@"
+#      ;;
+#    ledger:*)
+#      shift
+#      handle_ledger_cmd "$@"
+#      ;;
     *:*)
       COMMAND="new"
-      cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Create a new game. )"
+      cmdl="$( command_usage_line \<game-name\> \<max\> \<bet\> Create a new game. )
+"
       COMMAND="guess"
-      cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )"
+      cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )
+"
 #       COMMAND="reveal"
 #       cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
 # "
@@ -340,7 +358,8 @@ handle_reveal_cmd() {
       cd "LOTTERY/$GINSTANCE"
     fi
   else
-    cmdl="$( subcommand_usage_line reveal Reveal answer and end the game. )\n"
+    cmdl="$( subcommand_usage_line reveal Reveal answer and end the game. )
+"
     echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
     exit
   fi
