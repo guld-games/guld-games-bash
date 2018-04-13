@@ -37,7 +37,7 @@ export USER_EMAIL=$( git config user.email )
 export USER_SIGNINGKEY=$( git config user.signingkey )
 USER_IS_CONFIGURED=true
 
-GG_GULD_RATE=7100
+GG_GULD_RATE=5000
 
 # gitolite user home, where repos are hosted
 # shellcheck disable=SC2116
