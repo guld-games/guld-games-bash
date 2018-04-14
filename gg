@@ -37,8 +37,6 @@ export USER_EMAIL=$( git config user.email )
 export USER_SIGNINGKEY=$( git config user.signingkey )
 USER_IS_CONFIGURED=true
 
-GG_GULD_RATE=5000
-
 # gitolite user home, where repos are hosted
 # shellcheck disable=SC2116
 export GIT_HOME=$(echo ~git)
@@ -47,25 +45,20 @@ export GIT_HOME=$(echo ~git)
 # TODO iup
 if [ "$GULD_HOME" = "" ]; then
   export GG_DIR=$HOME"/ledger/GG"
+  export GULD_DIR=$HOME"/ledger/GULD"
+  export PRICE_DIR=$HOME"/ledger/prices"
 else
   export GG_DIR=$GULD_HOME"/ledger/GG"
+  export GULD_DIR=$GULD_HOME"/ledger/GULD"
+  export PRICE_DIR=$GULD_HOME"/ledger/prices"
 fi
 if [ -d "$GG_DIR" ]; then
   cd "$GG_DIR"
 fi
 
-# change to the root of any git dir for the duration of the script
-if [ -d "$GIT_DIR" ]; then
-  cd "$GIT_DIR"
-fi
-
 # detect OS
 MYOS=$( uname )
-if [ $MYOS = "Linux" ] ; then
-  GIT_DIR=$( readlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
-elif [ $MYOS = "Darwin" ] ; then
-  GIT_DIR=$( greadlink -f "$( git rev-parse -q --git-dir )" | grep -o ".*[^.git]" )
-else
+if [ $MYOS != "Linux" ] && [ $MYOS != "Darwin" ] ; then
   echo "only Linux and Darwin (macOS) are supported"
   exit 1
 fi
@@ -138,6 +131,10 @@ __main() {
     version:*)
       echo $VERSION
       ;;
+    price:*)
+      shift
+      handle_price_cmd "$@"
+      ;;
 #    reveal:*)
 #      shift
 #      handle_reveal_cmd "$@"
@@ -156,6 +153,9 @@ __main() {
 "
       COMMAND="guess"
       cmdl="$cmdl$( command_usage_line \<game-name\> \[guess\] Guess the number for a game. )
+"
+      COMMAND="price"
+      cmdl="$cmdl$( command_usage_line Number of GG received per 1 GULD burn contract. )
 "
 #       COMMAND="reveal"
 #       cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
@@ -197,6 +197,7 @@ handle_new_cmd() {
   else
     BET=$3
     GGBET=$( bc <<< "scale=8; $BET*$MAX" | sed 's/^\./0./' )
+    GG_GULD_RATE=$( handle_price_cmd )
     GULDBETF=$( bc <<< "scale=8; $GGBET/$GG_GULD_RATE" | sed 's/^\./0./' )
     # round up to nearest GULD bit
     if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
@@ -293,7 +294,7 @@ handle_guess_cmd() {
       GUESS=$( gshuf -i 0-$MAX -n 1 )
     fi
   fi
-
+  GG_GULD_RATE=$( handle_price_cmd )
   GULDBETF=$( bc <<< "scale=8; $BET/$GG_GULD_RATE" | sed 's/^\./0./' )
   # round up to nearest GULD bit
   if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
@@ -397,6 +398,30 @@ handle_reveal_cmd() {
   pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
   pulled=$( git commit -m "reveal" 2>&1 )
   pulled=$( git push origin master 2>&1 )
+}
+
+# $1 is now sub-command
+# $@ are params for the sub-command
+handle_price_cmd() {
+  year=$( date -u +%Y )
+  month=$( date -u +%m )
+  day=$( date -u +%d )
+  price=7100
+  while read p; do
+    if [[ $p =~ ^P.*GG$ ]] ; then
+      tyear=${p:1:5}
+      tmonth=${p:7:2}
+      tday=${p:10:2}
+      if [[ $tyear -le $year ]] && [[ $tmonth -le $month ]] && [[ $tday < $day ]] ; then
+        if [[ $p =~ [0-9.]*[[:space:]]+GG$ ]] ; then
+          price=$( echo ${BASH_REMATCH[0]} | grep -o [0-9.]* )
+        fi
+      else
+        break
+      fi
+    fi
+  done < "$PRICE_DIR/gg.db"
+  echo $price
 }
 
 #-------------------user prep and command section--------------------------
