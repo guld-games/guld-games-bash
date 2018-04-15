@@ -395,7 +395,8 @@ handle_reveal_cmd() {
     echo "You won!"
     WINNER=$DEALER
   fi
-
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
   CLAIM=$"$TDATE * GG LOTTERY $GINSTANCE CLAIM
     ; timestamp: $EPOCH_TIME
     gg:Games:LOTTERY:$GINSTANCE    -$WINNINGS GG
@@ -406,12 +407,12 @@ handle_reveal_cmd() {
 
   pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
   pulled=$( git commit -m "reveal" 2>&1 )
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
   if [ $WINNER = $USER_NAME ] ; then
     handle_stake_cmd $GINSTANCE
   else
     pulled=$( git push origin master 2>&1 )
-    EPOCH_TIME=$( date -u +%s )
-    TDATE=$( date -u +%Y/%m/%d )
   fi
 }
 
