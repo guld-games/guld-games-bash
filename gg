@@ -312,7 +312,7 @@ handle_guess_cmd() {
   GG_GULD_RATE=$( handle_price_cmd )
   GULDBETF=$( bc <<< "scale=8; $BET/$GG_GULD_RATE" | sed 's/^\./0./' )
   # round up to nearest GULD bit
-  if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
+  if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} = "0" ] ; then
     GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
   else
     GULDBET=$( printf "%.8f\n" "$GULDBETF" | bc | sed 's/^\./0./' )
