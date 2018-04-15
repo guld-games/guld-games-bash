@@ -349,6 +349,7 @@ handle_guess_cmd() {
       elif [ "$GUESS" = "$ANSWER" ] ; then
         echo "You won!"
         WINNER=$PLAYER
+        handle_stake_cmd $GINSTANCE
       else
         echo "You lost."
         WINNER=$DEALER
@@ -412,7 +413,11 @@ handle_reveal_cmd() {
 
   pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
   pulled=$( git commit -m "reveal" 2>&1 )
-  pulled=$( git push origin master 2>&1 )
+  if [ $WINNER = $USER_NAME ] ; then
+    handle_stake_cmd $GINSTANCE
+  else
+    pulled=$( git push origin master 2>&1 )
+  fi
 }
 
 # $1 is now sub-command
@@ -472,7 +477,7 @@ handle_stake_cmd() {
   pulled=$( git add "$EPOCH_TIME.dat" 2>&1 )
 
   pulled=$( git commit -m "stake" 2>&1 )
-  # pulled=$( git push origin master 2>&1 )
+  pulled=$( git push origin master 2>&1 )
 }
 
 # $1 is now sub-command
