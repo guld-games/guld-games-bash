@@ -151,10 +151,10 @@ __main() {
       shift
       get_game_funding "$@"
       ;;
-#    reveal:*)
-#      shift
-#      handle_reveal_cmd "$@"
-#      ;;
+   reveal:*)
+     shift
+     handle_reveal_cmd "$@"
+     ;;
 #    audit:*)
 #      shift
 #      handle_audit_cmd "$@"
@@ -254,6 +254,8 @@ handle_new_cmd() {
   pulled=$( git add hashnum.txt 2>&1 )
   pulled=$( git commit -m "new game" 2>&1 )
   pulled=$( git push origin master 2>&1 )
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
   end=$((SECONDS+18000)) # 30 minutes
   while [ $SECONDS -lt $end ]; do
     pulled=$( git pull origin master 2>&1 )
@@ -327,6 +329,8 @@ handle_guess_cmd() {
   pulled=$( git add guess.asc 2>&1 )
   pulled=$( git commit -m "guess" 2>&1 )
   pulled=$( git push origin master 2>&1 )
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
   end=$((SECONDS+18000)) # 30 minutes
   while [ $SECONDS -lt $end ]; do
     pulled=$( git pull origin master 2>&1 )
@@ -406,6 +410,8 @@ handle_reveal_cmd() {
     handle_stake_cmd $GINSTANCE
   else
     pulled=$( git push origin master 2>&1 )
+    EPOCH_TIME=$( date -u +%s )
+    TDATE=$( date -u +%Y/%m/%d )
   fi
 }
 
@@ -470,6 +476,8 @@ handle_stake_cmd() {
 
   pulled=$( git commit -m "stake" 2>&1 )
   pulled=$( git push origin master 2>&1 )
+  EPOCH_TIME=$( date -u +%s )
+  TDATE=$( date -u +%Y/%m/%d )
 }
 
 # $1 is now sub-command
@@ -664,8 +672,8 @@ get_game_funding() {
       FUNDING=$"$FUNDING
     gg:Equity:$1    -$bet GG
     gg:Games:LOTTERY:$2    $bet GG"
-    printf "%s\n" "$FUNDING"
-    return
+      printf "%s\n" "$FUNDING"
+      return
     fi
   fi
 }
