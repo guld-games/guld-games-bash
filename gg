@@ -504,8 +504,9 @@ handle_bal_cmd() {
   else
     usearch=":$1"
   fi
+  echo "$usearch"
   eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - equity ^.*:gg$usearch$ ^gg:.*$usearch$ )
-  # printf "%s\n" "$eqtx"
+  printf "%s\n" "$eqtx"
   if [ ! "$1" == "" ] ; then
     GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "^ *Equity:Opening Balances.*GG$" | grep -o [0-9\.\,-]* )
     GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" )
