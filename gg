@@ -139,6 +139,11 @@ __main() {
       shift
       handle_bal_cmd "$@"
       ;;
+    stake:*)
+      shift
+      handle_stake_cmd "$@"
+      ;;
+
 #    reveal:*)
 #      shift
 #      handle_reveal_cmd "$@"
@@ -163,6 +168,9 @@ __main() {
 "
       COMMAND="bal"
       cmdl="$cmdl$( command_usage_line [user] gg group balance for [user] or whole group. )
+"
+      COMMAND="stake"
+      cmdl="$cmdl$( command_usage_line [game] Stake for game, if you are the winner. )
 "
 #       COMMAND="reveal"
 #       cmdl="$cmdl$( command_usage_line Reveal answer and end the game. )
@@ -421,13 +429,14 @@ handle_stake_cmd() {
       cd "LOTTERY/$GINSTANCE"
     fi
   else
-    cmdl="$( subcommand_usage_line stake <game> Stake maximum amount allowable per game. )
+    cmdl="$( subcommand_usage_line \<game\> Stake maximum amount allowable per game. )
 "
     echo "$USAGE_PREAMBLE$cmdl$GENERAL_USAGE$USAGE_SUFFIX"
     exit
   fi
 
   BET=$( cat BET.txt )
+  MAX=$( cat MAX.txt )
   DEALER=$( cat DEALER.txt )
   PLAYER=$( cat PLAYER.txt )
   GUESS=$( cat guess )
@@ -437,26 +446,33 @@ handle_stake_cmd() {
     echo "invalid guess"
     exit
   elif [ "$GUESS" = "$ANSWER" ] ; then
-    echo "You lost."
     WINNER=$PLAYER
   else
-    echo "You won!"
     WINNER=$DEALER
+  fi
+  if [ "$USER_NAME" != "$WINNER" ] ; then
+    echo "you are not the winner"
+    exit
+  fi
+  STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep gg: | grep -o "[0-9.,]*" )
+  if [ ! "$STAKED" == "" ] ; then
+    echo "already staked this game"
+    exit
   fi
 
   EPOCH_TIME=$( date -u +%s )
   TDATE=$( date -u +%Y/%m/%d )
-  CLAIM=$"$TDATE * GG LOTTERY $GINSTANCE CLAIM
+  STAKE=$"$TDATE * GG LOTTERY $GINSTANCE STAKE
     ; timestamp: $EPOCH_TIME
-    gg:Games:LOTTERY:$GINSTANCE    -$WINNINGS GG
-    gg:Games:LOTTERY:$GINSTANCE:$WINNER    $WINNINGS GG"
-  echo "$CLAIM"
-  echo "$CLAIM" > "$EPOCH_TIME.dat"
+    gg:Games:LOTTERY:$GINSTANCE:$WINNER    -$BET GG
+    gg:Equity:$WINNER    $BET GG"
+
+  echo "$STAKE"
+  echo "$STAKE" > "$EPOCH_TIME.dat"
   pulled=$( git add "$EPOCH_TIME.dat" 2>&1 )
 
-  pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
-  pulled=$( git commit -m "reveal" 2>&1 )
-  pulled=$( git push origin master 2>&1 )
+  pulled=$( git commit -m "stake" 2>&1 )
+  # pulled=$( git push origin master 2>&1 )
 }
 
 # $1 is now sub-command
@@ -486,12 +502,14 @@ handle_price_cmd() {
 # $1 is now sub-command
 # $@ are params for the sub-command
 handle_bal_cmd() {
+  pulled=$( git pull origin master 2>&1 )
+
   if [ "$1" == "" ] ; then
     usearch=".*"
   else
     usearch=":$1"
   fi
-  eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - equity ^.*:gg$usearch ^gg:.*$usearch )
+  eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - equity ^.*:gg$usearch$ ^gg:.*$usearch$ )
   # printf "%s\n" "$eqtx"
   if [ ! "$1" == "" ] ; then
     GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "^ *Equity:Opening Balances.*GG$" | grep -o [0-9\.\,-]* )
