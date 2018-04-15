@@ -308,20 +308,20 @@ handle_guess_cmd() {
   fi
   GULDBETF=$( bc <<< "scale=8; $BET/$GGGULD" | sed 's/^\./0./' )
   if [ ${GULDBETF:1:2} = "." ] && [ ${GULDBETF:8:1} != "0" ] ; then
-  # if [ "${GULDBETF:1:2}" = "." ] && [ "${GULDBETF:8:9}" != "0" ] ; then
     # round up to nearest GULD bit
     GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
   else
     GULDBET=$( printf "%.8f\n" "$GULDBETF" | bc | sed 's/^\./0./' )
   fi
-  echo $USER_NAME > PLAYER.txt
   pulled=$( git add PLAYER.txt 2>&1 )
   EPOCH_TIME=$( date -u +%s )
   FUNDING=$( get_game_funding $USER_NAME $GINSTANCE $BET )
   echo "$FUNDING"
+  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 -u $USER_SIGNINGKEY --clearsign  2>/dev/null )
   echo "$FUNDING" > "$EPOCH_TIME.dat"
   pulled=$( git add "$EPOCH_TIME.dat"  2>&1 )
-  siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 -u $USER_SIGNINGKEY --clearsign  2>/dev/null )
+  echo $USER_NAME > PLAYER.txt
+  pulled=$( git add PLAYER.txt 2>&1 )
   printf "%s" "$siguess" > guess.asc
   pulled=$( git add guess.asc 2>&1 )
   pulled=$( git commit -m "guess" 2>&1 )
@@ -533,6 +533,12 @@ handle_bal_cmd() {
       GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o [0-9.,-]* )
     fi
   fi
+  if [ "$GULD_TOTAL" = "" ] ; then
+    GULD_TOTAL=0
+  fi
+  if [ "$GG_TOTAL" = "" ] ; then
+    GG_TOTAL=0
+  fi
   ggaccounts=$( printf "%s" "$eqtx" | grep ^[[:space:]]*gg:[EG][qa] )
   guldaccounts=$( printf "%s" "$eqtx" | grep :gg: )
   printf "%s\n%s\n---------------\n" "$ggaccounts" "$guldaccounts"
@@ -579,14 +585,15 @@ get_game_funding() {
           ggequity=$( echo $bal | ggrep -o [0-9.,]* )
         else
           ggequity=$( echo $bal | grep -o [0-9.,]* )
+          echo $ggequity
         fi
       else
         if [ "$MYOS" = "Darwin" ] ; then
-          accounts[$i]=$( echo $bal | ggrep -o ^[-a-zA-Z0-9:]* )
-          subals[$i]=$( echo $bal | ggrep -o [0-9.,]*[[:space:]]*[GULD]*$ | ggrep -o [0-9.,]* | sed 's/,//' )
+          accounts[$i]=$( echo $bal | ggrep -o "^[-a-zA-Z0-9:]*" )
+          subals[$i]=$( echo $bal | ggrep -o "[0-9.,]*[[:space:]]*[GULD]*$" | "ggrep -o [0-9.,]*" | sed 's/,//' )
         else
-          accounts[$i]=$( echo $bal | grep -o ^[-a-zA-Z0-9:]* )
-          subals[$i]=$( echo $bal | grep -o [0-9.,]*[[:space:]]*[GULD]*$ | grep -o [0-9.,]* | sed 's/,//' )
+          accounts[$i]=$( echo $bal | grep -o "^[-a-zA-Z0-9:]*" )
+          subals[$i]=$( echo $bal | grep -o "[0-9.,]*[[:space:]]*[GULD]*$" | grep -o "[0-9.,]*" | sed 's/,//' )
         fi
         i=$(( $i + 1 ))
       fi
