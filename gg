@@ -516,21 +516,21 @@ handle_bal_cmd() {
   if [ "$1" != "" ] ; then
     if [ "$MYOS" = "Darwin" ] ; then
       GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GG$" | ggrep -o "[0-9.,-]*" )
-      GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" )
+      GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" | sed 's/,//' )
       GG_TOTAL=$( bc <<< "scale=8; $GG_TOTAL_INV*-1" )
       GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | ggrep -o "[0-9.,-]*" )
     else
       GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GG$" | grep -o "[0-9.,-]*" )
-      GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" )
+      GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" | sed 's/,//' )
       GG_TOTAL=$( bc <<< "scale=8; $GG_TOTAL_INV*-1" )
       GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o "[0-9.,-]*" )
     fi
   else
     GG_TOTAL=0
     if [ "$MYOS" = "Darwin" ] ; then
-      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | ggrep -o "[0-9.,-]*" )
+      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | ggrep -o "[0-9.,-]*" | sed 's/,//' )
     else
-      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o "[0-9.,-]*" )
+      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o "[0-9.,-]*" | sed 's/,//' )
     fi
   fi
   if [ "$GULD_TOTAL" = "" ] ; then
@@ -562,16 +562,16 @@ get_game_funding() {
     if [ $intotals = 1 ] ; then
       if [[ $bal =~ .*GULD$ ]] ; then
         if [ "$MYOS" = "Darwin" ] ; then
-          guldbal=$( echo $bal | ggrep -o "[0-9.,]*" )
+          guldbal=$( echo $bal | ggrep -o "[0-9.,]*" | sed 's/,//' )
         else
-          guldbal=$( echo $bal | grep -o "[0-9.,]*" )
+          guldbal=$( echo $bal | grep -o "[0-9.,]*" | sed 's/,//' )
         fi
         guldggval=$( bc <<< "scale=8; $guldbal*$GGGULD" | sed 's/^\./0./' )
       elif [[ $bal =~ .*GG$ ]] ; then
         if [ "$MYOS" = "Darwin" ] ; then
-          ggbal=$( echo $bal | ggrep -o "[0-9.,]*" )
+          ggbal=$( echo $bal | ggrep -o "[0-9.,]*" | sed 's/,//' )
         else
-          ggbal=$( echo $bal | grep -o "[0-9.,]*" )
+          ggbal=$( echo $bal | grep -o "[0-9.,]*" | sed 's/,//' )
         fi
       else
         echo "unknown balance format"
@@ -582,9 +582,9 @@ get_game_funding() {
     else
       if [[ $bal =~ $gg:Equity ]] ; then
         if [ "$MYOS" = "Darwin" ] ; then
-          ggequity=$( echo $bal | ggrep -o "[0-9.,]*" )
+          ggequity=$( echo $bal | ggrep -o "[0-9.,]*" | sed 's/,//' )
         else
-          ggequity=$( echo $bal | grep -o "[0-9.,]*" )
+          ggequity=$( echo $bal | grep -o "[0-9.,]*" | sed 's/,//' )
         fi
       else
         if [ "$MYOS" = "Darwin" ] ; then
