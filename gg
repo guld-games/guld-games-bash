@@ -93,6 +93,7 @@ command_option_line() {
   printf "    %s    %s" "$OPTSTR" "$*"
 }
 
+GGGULD=7100 # will be reset below
 
 #------------------------CLI Handlers-----------------------------
 
@@ -188,12 +189,12 @@ handle_new_cmd() {
   pulled=$( git pull origin master 2>&1 )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
-    if [ -d "LOTTERY/$GINSTANCE" ] ; then
+    if [ -d "$GG_DIR/LOTTERY/$GINSTANCE" ] ; then
       echo "Game $GINSTANCE already exists. Pick another name."
       exit
     else
-      mkdir "LOTTERY/$GINSTANCE"
-      cd "LOTTERY/$GINSTANCE"
+      mkdir "$GG_DIR/LOTTERY/$GINSTANCE"
+      cd "$GG_DIR/LOTTERY/$GINSTANCE"
     fi
   else
     cmdl="$( subcommand_usage_line new \<game-name\> \<max\> \<bet\> Create a new game. )\n"
@@ -212,8 +213,7 @@ handle_new_cmd() {
   else
     BET=$3
     GGBET=$( bc <<< "scale=8; $BET*$MAX" | sed 's/^\./0./' )
-    GG_GULD_RATE=$( handle_price_cmd )
-    GULDBETF=$( bc <<< "scale=8; $GGBET/$GG_GULD_RATE" | sed 's/^\./0./' )
+    GULDBETF=$( bc <<< "scale=8; $GGBET/$GGGULD" | sed 's/^\./0./' )
     # round up to nearest GULD bit
     if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} -eq "0" ] ; then
       GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
@@ -277,7 +277,7 @@ handle_guess_cmd() {
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
-      cd "LOTTERY/$GINSTANCE"
+      cd "$GG_DIR/LOTTERY/$GINSTANCE"
     fi
   else
     cmdl="$( subcommand_usage_line guess \<game-name\> \[guess\] Guess the number for a game )\n"
@@ -309,10 +309,10 @@ handle_guess_cmd() {
       GUESS=$( gshuf -i 0-$MAX -n 1 )
     fi
   fi
-  GG_GULD_RATE=$( handle_price_cmd )
-  GULDBETF=$( bc <<< "scale=8; $BET/$GG_GULD_RATE" | sed 's/^\./0./' )
-  # round up to nearest GULD bit
-  if [ ${GULDBETF:1:2} = "." ] && ! [ ${GULDBETF:8:9} = "0" ] ; then
+  GULDBETF=$( bc <<< "scale=8; $BET/$GGGULD" | sed 's/^\./0./' )
+  if [ ${GULDBETF:1:2} = "." ] && [ ${GULDBETF:8:1} != "0" ] ; then
+  # if [ "${GULDBETF:1:2}" = "." ] && [ "${GULDBETF:8:9}" != "0" ] ; then
+    # round up to nearest GULD bit
     GULDBET=$( printf "%.8f\n" $( bc <<< scale=8; $GULDBETF + 0.000000005 ) | bc | sed 's/^\./0./' )
   else
     GULDBET=$( printf "%.8f\n" "$GULDBETF" | bc | sed 's/^\./0./' )
@@ -372,7 +372,7 @@ handle_reveal_cmd() {
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
-      cd "LOTTERY/$GINSTANCE"
+      cd "$GG_DIR/LOTTERY/$GINSTANCE"
     fi
   else
     cmdl="$( subcommand_usage_line reveal Reveal answer and end the game. )
@@ -431,7 +431,7 @@ handle_stake_cmd() {
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
-      cd "LOTTERY/$GINSTANCE"
+      cd "$GG_DIR/LOTTERY/$GINSTANCE"
     fi
   else
     cmdl="$( subcommand_usage_line \<game\> Stake maximum amount allowable per game. )
@@ -489,12 +489,12 @@ handle_price_cmd() {
   price=7100
   while read p; do
     if [[ $p =~ ^P.*GG$ ]] ; then
-      tyear=${p:1:5}
+      tyear=${p:2:4}
       tmonth=${p:7:2}
       tday=${p:10:2}
       if [[ $tyear -le $year ]] && [[ $tmonth -le $month ]] && [[ $tday < $day ]] ; then
         if [[ $p =~ [0-9.]*[[:space:]]+GG$ ]] ; then
-          price=$( echo ${BASH_REMATCH[0]} | grep -o [0-9.]* )
+          price=$( echo "${BASH_REMATCH[0]}" | grep -o "[0-9.]*" )
         fi
       else
         break
@@ -683,5 +683,7 @@ use_gitolite_push() {
     echo 0
   fi
 }
+
+GGGULD=$( handle_price_cmd )
 
 __main "$@"
