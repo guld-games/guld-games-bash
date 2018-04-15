@@ -535,10 +535,11 @@ get_game_funding() {
   guldggval=0
   intotals=0
   while read -r bal; do
-    # echo "$bal    $intotals"
     if [ $intotals = 1 ] ; then
       if [[ $bal =~ .*GULD$ ]] ; then
         guldbal=$( echo $bal | grep -o [0-9.,]* )
+        echo $guldbal
+        echo $GGGULD
         guldggval=$( bc <<< "scale=8; $guldbal*$GGGULD" | sed 's/^\./0./' )
       elif [[ $bal =~ .*GG$ ]] ; then
         ggbal=$( echo $bal | grep -o [0-9.,]* )
@@ -553,7 +554,7 @@ get_game_funding() {
         ggequity=$( echo $bal | grep -o [0-9.,]* )
       else
         accounts[$i]=$( echo $bal | grep -o ^[-a-zA-Z0-9:]* )
-        subals[$i]=$( echo $bal | grep -o [0-9.,]*[[:space:]]*[GULD]*$ | grep -o [0-9.,]* | sed -u 's/,//g' )
+        subals[$i]=$( echo $bal | grep -o [0-9.,]*[[:space:]]*[GULD]*$ | grep -o [0-9.,]* | sed 's/,//' )
         i=$(( $i + 1 ))
       fi
     fi
@@ -565,6 +566,7 @@ get_game_funding() {
     ; timestamp: $EPOCH_TIME"
 
   bet=$3
+  echo $guldggval
   if [ $( echo "$guldggval>0" | bc ) = "1" ] ; then
     if [ $( echo "$guldggval>=$bet" | bc ) = "1" ] ; then
       amt=$bet
