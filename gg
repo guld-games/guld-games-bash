@@ -273,7 +273,7 @@ handle_guess_cmd() {
   pulled=$( git pull origin master 2>&1 )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
-    if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
+    if ! [ -d "$GG_DIR/LOTTERY/$GINSTANCE" ] ; then
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
@@ -368,7 +368,7 @@ handle_reveal_cmd() {
 
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
-    if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
+    if ! [ -d "$GG_DIR/LOTTERY/$GINSTANCE" ] ; then
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
@@ -427,7 +427,7 @@ handle_stake_cmd() {
 
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
-    if ! [ -d "LOTTERY/$GINSTANCE" ] ; then
+    if ! [ -d "$GG_DIR/LOTTERY/$GINSTANCE" ] ; then
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
     else
