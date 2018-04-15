@@ -225,7 +225,6 @@ handle_new_cmd() {
     fi
   fi
   EPOCH_TIME=$( date -u +%s )
-  TDATE=$( date -u +%Y/%m/%d )
   if [ $MYOS = "Linux" ] ; then
     SECRET=$( shuf -i 0-$MAX -n 1 )
   elif [ $MYOS = "Darwin" ] ; then
@@ -317,7 +316,7 @@ handle_guess_cmd() {
   fi
   echo $USER_NAME > PLAYER.txt
   pulled=$( git add PLAYER.txt 2>&1 )
-
+  EPOCH_TIME=$( date -u +%s )
   FUNDING=$( get_game_funding $USER_NAME $GINSTANCE $BET )
   echo "$FUNDING"
   echo "$FUNDING" > "$EPOCH_TIME.dat"
@@ -450,7 +449,7 @@ handle_stake_cmd() {
     echo "you are not the winner"
     exit
   fi
-  if [ $MYOS == 'Darwin' ] ; then
+  if [ "$MYOS" = "Darwin" ] ; then
     STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep gg: | ggrep -o "[0-9.,]*" )
   else
     STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep gg: | grep -o "[0-9.,]*" )
@@ -490,7 +489,7 @@ handle_price_cmd() {
       tday=${p:10:2}
       if [[ $tyear -le $year ]] && [[ $tmonth -le $month ]] && [[ $tday < $day ]] ; then
         if [[ $p =~ [0-9.]*[[:space:]]+GG$ ]] ; then
-          if [ $MYOS == 'Darwin' ] ; then
+          if [ "$MYOS" = "Darwin" ] ; then
             price=$( echo "${BASH_REMATCH[0]}" | ggrep -o "[0-9.]*" )
           else
             price=$( echo "${BASH_REMATCH[0]}" | grep -o "[0-9.]*" )
@@ -515,7 +514,7 @@ handle_bal_cmd() {
   fi
   eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - equity ^.*:gg$usearch$ ^gg:.*$usearch$ )
   if [ "$1" != "" ] ; then
-    if [ $MYOS == 'Darwin' ] ; then
+    if [ "$MYOS" = "Darwin" ] ; then
       GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GG$" | ggrep -o [0-9.,-]* )
       GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" )
       GG_TOTAL=$( bc <<< "scale=8; $GG_TOTAL_INV*-1" )
@@ -528,7 +527,7 @@ handle_bal_cmd() {
     fi
   else
     GG_TOTAL=0
-    if [ $MYOS == 'Darwin' ] ; then
+    if [ "$MYOS" = "Darwin" ] ; then
       GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | ggrep -o [0-9.,-]* )
     else
       GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o [0-9.,-]* )
@@ -556,14 +555,14 @@ get_game_funding() {
   while read -r bal; do
     if [ $intotals = 1 ] ; then
       if [[ $bal =~ .*GULD$ ]] ; then
-        if [ $MYOS == 'Darwin' ] ; then
+        if [ "$MYOS" = "Darwin" ] ; then
           guldbal=$( echo $bal | ggrep -o [0-9.,]* )
         else
           guldbal=$( echo $bal | grep -o [0-9.,]* )
         fi
         guldggval=$( bc <<< "scale=8; $guldbal*$GGGULD" | sed 's/^\./0./' )
       elif [[ $bal =~ .*GG$ ]] ; then
-        if [ $MYOS == 'Darwin' ] ; then
+        if [ "$MYOS" = "Darwin" ] ; then
           ggbal=$( echo $bal | ggrep -o [0-9.,]* )
         else
           ggbal=$( echo $bal | grep -o [0-9.,]* )
@@ -576,13 +575,13 @@ get_game_funding() {
       intotals=1
     else
       if [[ $bal =~ $gg:Equity ]] ; then
-        if [ $MYOS == 'Darwin' ] ; then
+        if [ "$MYOS" = "Darwin" ] ; then
           ggequity=$( echo $bal | ggrep -o [0-9.,]* )
         else
           ggequity=$( echo $bal | grep -o [0-9.,]* )
         fi
       else
-        if [ $MYOS == 'Darwin' ] ; then
+        if [ "$MYOS" = "Darwin" ] ; then
           accounts[$i]=$( echo $bal | ggrep -o ^[-a-zA-Z0-9:]* )
           subals[$i]=$( echo $bal | ggrep -o [0-9.,]*[[:space:]]*[GULD]*$ | ggrep -o [0-9.,]* | sed 's/,//' )
         else
