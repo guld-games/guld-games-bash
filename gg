@@ -590,7 +590,7 @@ get_game_funding() {
       else
         if [ "$MYOS" = "Darwin" ] ; then
           accounts[$i]=$( echo $bal | ggrep -o "^[-a-zA-Z0-9:]*" )
-          subals[$i]=$( echo $bal | ggrep -o "[0-9.,]*[[:space:]]*[GULD]*$" | "ggrep -o [0-9.,]*" | sed 's/,//' )
+          subals[$i]=$( echo $bal | ggrep -o "[0-9.,]*[[:space:]]*[GULD]*$" | ggrep -o "[0-9.,]*" | sed 's/,//' )
         else
           accounts[$i]=$( echo $bal | grep -o "^[-a-zA-Z0-9:]*" )
           subals[$i]=$( echo $bal | grep -o "[0-9.,]*[[:space:]]*[GULD]*$" | grep -o "[0-9.,]*" | sed 's/,//' )
