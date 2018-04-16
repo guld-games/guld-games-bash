@@ -283,6 +283,7 @@ handle_new_cmd() {
   done
   if [ "$GG_REPLAY" != "" ] ; then
     sleep 5
+    pulled=$( git push origin master 2>&1 )
     REPLAY_INC=$(( $REPLAY_INC + 1 ))
     handle_new_cmd "$OGINSTANCE$REPLAY_INC" $MAX $BET
   fi
@@ -378,7 +379,7 @@ handle_guess_cmd() {
   done
   if [ "$GG_REPLAY" != "" ] ; then
     REPLAY_INC=$(( $REPLAY_INC + 1 ))
-    end=$((SECONDS+3000)) # 5 minutes
+    end=$((end+3000)) # 5 minutes
     while [ $SECONDS -lt $end ]; do
       pulled=$( git pull origin master 2>&1 )
       if [ -d "$GG_DIR/LOTTERY/$OGINSTANCE$REPLAY_INC" ] ; then
