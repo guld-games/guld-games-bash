@@ -494,7 +494,7 @@ handle_stake_cmd() {
     STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep "[^-][0-9.,]*" | grep -o "[0-9.,]*" )
   fi
 
-  if [ "$STAKED" == "" ] || [ "$( echo $STAKED>=0 | bc )" = "1" ]; then
+  if [ "$STAKED" != "" ] && [ "$( echo $STAKED>0 | bc )" = "1" ]; then
     echo "already staked this game"
     exit
   fi
