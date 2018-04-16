@@ -558,37 +558,15 @@ handle_bal_cmd() {
   else
     usearch=":$1"
   fi
-  eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - equity ^.*:gg$usearch$ ^gg:.*$usearch$ )
-  if [ "$1" != "" ] ; then
-    if [ "$MYOS" = "Darwin" ] ; then
-      GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GG$" | ggrep -o "[0-9.,-]*" )
-      GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" | sed 's/,//g' )
-      GG_TOTAL=$( bc <<< "scale=8; $GG_TOTAL_INV*-1" )
-      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | ggrep -o "[0-9.,-]*" )
-    else
-      GG_TOTAL_INV=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GG$" | grep -o "[0-9.,-]*" )
-      GG_TOTAL_INV=$( echo "${GG_TOTAL_INV/,/}" | sed 's/,//g' )
-      GG_TOTAL=$( bc <<< "scale=8; $GG_TOTAL_INV*-1" )
-      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o "[0-9.,-]*" )
-    fi
+  eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - --flat bal ^.*:gg$usearch$ ^gg:.*$usearch$ )
+  allbutguldtotal=$( printf "%s" "$eqtx" | grep -v guld:Income:register:group:gg: | grep -v GULD$ )
+  if [ "$MYOS" = "Darwin" ] ; then
+    guldtotal=$( printf "%s" "$eqtx" | grep guld:Income:register:group:gg: | ggrep -o "[0-9.,-]*" )
   else
-    GG_TOTAL=0
-    if [ "$MYOS" = "Darwin" ] ; then
-      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | ggrep -o "[0-9.,-]*" | sed 's/,//g' )
-    else
-      GULD_TOTAL=$( printf "%s" "$eqtx" | grep "Equity:Opening Balances.*GULD$" | grep -o "[0-9.,-]*" | sed 's/,//g' )
-    fi
+    guldtotal=$( printf "%s" "$eqtx" | grep guld:Income:register:group:gg: | grep -o "[0-9.,-]*" )
   fi
-  if [ "$GULD_TOTAL" = "" ] ; then
-    GULD_TOTAL=0
-  fi
-  if [ "$GG_TOTAL" = "" ] ; then
-    GG_TOTAL=0
-  fi
-  ggaccounts=$( printf "%s" "$eqtx" | grep "^[[:space:]]*gg:[EG][qa]" )
-  guldaccounts=$( printf "%s" "$eqtx" | grep :gg: )
-  printf "%s\n%s\n---------------\n" "$ggaccounts" "$guldaccounts"
-  printf "%s GG\n%s GULD\n" "$GG_TOTAL" "$GULD_TOTAL"
+  guldtotal=$( echo $guldtotal*-1 | bc | sed 's/^\./0./' )
+  printf "%s\n%s GULD\n" "$allbutguldtotal" "$guldtotal"
 }
 
 # $1 is username
@@ -623,25 +601,25 @@ get_game_funding() {
         $( >&2 echo "unknown balance format" )
         exit 1
       fi
-    elif [ "$bal" = "---------------" ] ; then
+    elif [ "$bal" = "--------------------" ] ; then
       intotals=1
     else
       if [ "$bal" == "" ] ; then
         continue
       fi
-      if [[ $bal =~ $gg:Equity ]] ; then
+      if [[ $bal =~ gg:Equity[-:a-zA-Z0-9]$ ]] ; then
         if [ "$MYOS" = "Darwin" ] ; then
-          ggequity=$( echo $bal | ggrep -o "[0-9.,]*" | sed 's/,//g' )
+          ggequity=$( echo $bal | ggrep -o "^ [0-9.,]*" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
         else
-          ggequity=$( echo $bal | grep -o "[0-9.,]*" | sed 's/,//g' )
+          ggequity=$( echo $bal | grep -o "^ [0-9.,]*" | grep -o "[0-9.,]*" | sed 's/,//g' )
         fi
       else
         if [ "$MYOS" = "Darwin" ] ; then
-          accounts[$i]=$( echo $bal | ggrep -o "^[-a-zA-Z0-9:]*" )
-          subals[$i]=$( echo $bal | ggrep -o "[0-9.,]*[[:space:]]*[GULD]*$" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
+          accounts[$i]=$( echo $bal | ggrep -o "[-a-zA-Z0-9:]*$" )
+          subals[$i]=$( echo $bal | grep -o "^ [0-9.,]*" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
         else
-          accounts[$i]=$( echo $bal | grep -o "^[-a-zA-Z0-9:]*" )
-          subals[$i]=$( echo $bal | grep -o "[0-9.,]*[[:space:]]*[GULD]*$" | grep -o "[0-9.,]*" | sed 's/,//g' )
+          accounts[$i]=$( echo $bal | grep -o "[-a-zA-Z0-9:]*$" )
+          subals[$i]=$( echo $bal | grep -o "^ [0-9.,]*" | grep -o "[0-9.,]*" | sed 's/,//g' )
         fi
         i=$(( $i + 1 ))
       fi
@@ -652,7 +630,7 @@ get_game_funding() {
     ; timestamp: $EPOCH_TIME"
 
   bet=$3
-  total=$( echo "$guldggval+$ggbal+$ggequity" | bc | sed 's/^\./0./g' )
+  total=$( echo "$guldggval+$ggbal" | bc | sed 's/^\./0./g' )
   sufficent=$( echo "$total>=$bet" | bc )
 
   if [ "$sufficent" != "1" ] ; then
