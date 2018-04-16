@@ -652,7 +652,7 @@ get_game_funding() {
     ; timestamp: $EPOCH_TIME"
 
   bet=$3
-  total=$( echo "$guldggval+$ggbal" | bc | sed 's/^\./0./g' )
+  total=$( echo "$guldggval+$ggbal+$ggequity" | bc | sed 's/^\./0./g' )
   sufficent=$( echo "$total>=$bet" | bc )
 
   if [ "$sufficent" != "1" ] ; then
