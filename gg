@@ -28,7 +28,7 @@ ORIG_IFS=$IFS
 
 # Save $0 so we can shift
 # $1 must be a cmd.
-export PROG_NAME=$( echo "$0" | grep -o "[^/]*$" )
+export PROG_NAME=$0
 export COMMAND=$1
 
 # Git user configuration is a pre-requisite of this script.
@@ -489,7 +489,7 @@ handle_stake_cmd() {
     exit
   fi
   if [ "$MYOS" = "Darwin" ] ; then
-    STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep "[^-][0-9.,]*" | ggrep -o "[0-9.,]*" )
+    STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | ggrep "[^-][0-9.,]*" | ggrep -o "[0-9.,]*" )
   else
     STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep "[^-][0-9.,]*" | grep -o "[0-9.,]*" )
   fi
@@ -595,6 +595,7 @@ get_game_funding() {
           guldbal=$( echo $bal | grep -o "[0-9.,]*" | sed 's/,//g' )
         fi
         guldggval=$( bc <<< "scale=8; $guldbal*$GGGULD" | sed 's/^\./0./' )
+        echo $guldggval
       elif [[ $bal =~ .*GG$ ]] ; then
         if [ "$MYOS" = "Darwin" ] ; then
           ggbal=$( echo $bal | ggrep -o "[0-9.,]*" | sed 's/,//g' )
@@ -613,17 +614,17 @@ get_game_funding() {
       fi
       if [[ $bal =~ gg:Equity[-:a-zA-Z0-9]$ ]] ; then
         if [ "$MYOS" = "Darwin" ] ; then
-          ggequity=$( echo $bal | ggrep -o "^ [0-9.,]*" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
+          ggequity=$( echo $bal | ggrep -o "^ *[0-9.,]*" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
         else
-          ggequity=$( echo $bal | grep -o "^ [0-9.,]*" | grep -o "[0-9.,]*" | sed 's/,//g' )
+          ggequity=$( echo $bal | grep -o "^ *[0-9.,]*" | grep -o "[0-9.,]*" | sed 's/,//g' )
         fi
       else
         if [ "$MYOS" = "Darwin" ] ; then
           accounts[$i]=$( echo $bal | ggrep -o "[-a-zA-Z0-9:]*$" )
-          subals[$i]=$( echo $bal | ggrep -o "^ [0-9.,]*" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
+          subals[$i]=$( echo $bal | ggrep -o "^ *[0-9.,-]*" | ggrep -o "[0-9.,]*" | sed 's/,//g' )
         else
           accounts[$i]=$( echo $bal | grep -o "[-a-zA-Z0-9:]*$" )
-          subals[$i]=$( echo $bal | grep -o "^ [0-9.,]*" | grep -o "[0-9.,]*" | sed 's/,//g' )
+          subals[$i]=$( echo $bal | grep -o "^ *[0-9.,-]*" | grep -o "[0-9.,]*" | sed 's/,//g' )
         fi
         i=$(( $i + 1 ))
       fi
