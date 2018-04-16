@@ -247,7 +247,7 @@ handle_new_cmd() {
     SECRET=$( gshuf -i 0-$MAX -n 1 )
   fi
   FUNDING=$( get_game_funding $USER_NAME $GINSTANCE $GGBET )
-  echo "$FUNDING"
+  # echo "$FUNDING"
   echo $USER_NAME > DEALER.txt
   pulled=$( git add DEALER.txt 2>&1 )
   echo $BET > BET.txt
@@ -266,7 +266,7 @@ handle_new_cmd() {
   fi
   echo $hashnum > hashnum.txt
   pulled=$( git add hashnum.txt 2>&1 )
-  pulled=$( git commit -m "new game" 2>&1 )
+  pulled=$( git commit -q -m "new game" &>/dev/null )
   pulled=$( git push origin master 2>&1 )
   EPOCH_TIME=$( date -u +%s )
   TDATE=$( date -u +%Y/%m/%d )
@@ -342,7 +342,7 @@ handle_guess_cmd() {
   fi
   pulled=$( git add PLAYER.txt 2>&1 )
   FUNDING=$( get_game_funding $USER_NAME $GINSTANCE $BET )
-  echo "$FUNDING"
+  # echo "$FUNDING"
   siguess=$(printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$GUESS" | gpg2 -u $USER_SIGNINGKEY --clearsign  2>/dev/null )
   echo "$FUNDING" > "$EPOCH_TIME.dat"
   pulled=$( git add "$EPOCH_TIME.dat"  2>&1 )
@@ -350,7 +350,7 @@ handle_guess_cmd() {
   pulled=$( git add PLAYER.txt 2>&1 )
   printf "%s" "$siguess" > guess.asc
   pulled=$( git add guess.asc 2>&1 )
-  pulled=$( git commit -m "guess" 2>&1 )
+  pulled=$( git commit -q -m "guess" &>/dev/null )
   pulled=$( git push origin master 2>&1 )
   EPOCH_TIME=$( date -u +%s )
   TDATE=$( date -u +%Y/%m/%d )
@@ -416,7 +416,7 @@ handle_reveal_cmd() {
   WINNINGS=$( bc <<< "scale=8; $BET*($MAX+1)" | sed 's/^\./0./' )
   DEALER=$( cat DEALER.txt )
   PLAYER=$( cat PLAYER.txt )
-  VERIFIED=$( gpg2 --status-fd --verify guess.asc 2>/dev/null )
+  VERIFIED=$( gpg2 -q --yes guess.asc 2>/dev/null )
   GUESS=$( cat guess )
   SECRET=$( cat SECRET.txt )
   ANSWER=$( printf "%s:%s:%s" "$GINSTANCE" "$MAX" "$SECRET" )
@@ -436,15 +436,15 @@ handle_reveal_cmd() {
     ; timestamp: $EPOCH_TIME
     gg:Games:LOTTERY:$GINSTANCE    -$WINNINGS GG
     gg:Games:LOTTERY:$GINSTANCE:$WINNER    $WINNINGS GG"
-  echo "$CLAIM"
+  # echo "$CLAIM"
   echo "$CLAIM" > "$EPOCH_TIME.dat"
   pulled=$( git add "$EPOCH_TIME.dat" 2>&1 )
 
   pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
-  pulled=$( git commit -m "reveal" 2>&1 )
   if [ $WINNER = $USER_NAME ] ; then
     handle_stake_cmd $GINSTANCE
   else
+    pulled=$( git commit -q -m "reveal" &>/dev/null )
     pulled=$( git push origin master 2>&1 )
   fi
 }
@@ -494,7 +494,7 @@ handle_stake_cmd() {
     STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep gg: | grep -o "[0-9.,]*" )
   fi
 
-  if [ ! "$STAKED" == "" ] ; then
+  if [ "$STAKED" == "" ] || [ "$( echo $STAKED>=0 | bc )" = "1" ]; then
     echo "already staked this game"
     exit
   fi
@@ -511,7 +511,7 @@ handle_stake_cmd() {
     gg:Games:LOTTERY:$GINSTANCE:$WINNER    -$BET GG
     gg:Equity:$WINNER    $BET GG"
 
-  echo "$STAKE"
+  # echo "$STAKE"
   echo "$STAKE" > "$EPOCH_TIME.dat"
   pulled=$( git add "$EPOCH_TIME.dat" 2>&1 )
 
