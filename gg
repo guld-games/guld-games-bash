@@ -66,6 +66,17 @@ fi
 EPOCH_TIME=$( date -u +%s )
 TDATE=$( date -u +%Y/%m/%d )
 
+if [ "$GULD_GAME" = "" ]; then
+  GULD_GAME="LOTTERY"
+fi
+
+OGINSTANCE=""
+if [ "$GG_REPLAY" = "" ]; then
+  REPLAY_INC=$GG_REPLAY
+else
+  REPLAY_INC=""
+fi
+
 #------------------------CLI Helpers--------------------------
 USAGE_PREAMBLE="
   $PROG_NAME  Play guld games
@@ -195,6 +206,9 @@ handle_new_cmd() {
   pulled=$( git pull origin master 2>&1 )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
+    if [ "$OGINSTANCE" = "" ] ; then
+      OGINSTANCE=$GINSTANCE
+    fi
     if [ -d "$GG_DIR/LOTTERY/$GINSTANCE" ] ; then
       echo "Game $GINSTANCE already exists. Pick another name."
       exit
@@ -267,6 +281,11 @@ handle_new_cmd() {
       sleep 5
     fi
   done
+  if [ "$GG_REPLAY" != "" ] ; then
+    sleep 5
+    REPLAY_INC=$(( $REPLAY_INC + 1 ))
+    handle_new_cmd "$OGINSTANCE$REPLAY_INC" $MAX $BET
+  fi
 }
 
 # $1 is now sub-command (build, check)
@@ -274,6 +293,9 @@ handle_guess_cmd() {
   pulled=$( git pull origin master 2>&1 )
   if [ "$1" != "" ] ; then
     GINSTANCE=$1
+    if [ "$OGINSTANCE" = "" ] ; then
+      OGINSTANCE=$GINSTANCE
+    fi
     if ! [ -d "$GG_DIR/LOTTERY/$GINSTANCE" ] ; then
       echo "Game $GINSTANCE does not exist. Pick an open game."
       exit
@@ -354,6 +376,18 @@ handle_guess_cmd() {
       sleep 5
     fi
   done
+  if [ "$GG_REPLAY" != "" ] ; then
+    REPLAY_INC=$(( $REPLAY_INC + 1 ))
+    end=$((SECONDS+3000)) # 5 minutes
+    while [ $SECONDS -lt $end ]; do
+      pulled=$( git pull origin master 2>&1 )
+      if [ -d "$GG_DIR/LOTTERY/$OGINSTANCE$REPLAY_INC" ] ; then
+        handle_guess_cmd "$OGINSTANCE$REPLAY_INC"
+      else
+        sleep 5
+      fi
+    done
+  fi
 }
 
 # $1 is now sub-command
