@@ -566,7 +566,6 @@ handle_bal_cmd() {
     guldtotal=$( printf "%s" "$eqtx" | grep GULD$ | grep -o "[0-9.,-]*" )
   fi
   if [ "$guldtotal" != "" ] ; then
-    echo $guldtotal
     guldtotal=$( echo $guldtotal*-1 | bc | sed 's/^\./0./' )
   else
     guldtotal=0
