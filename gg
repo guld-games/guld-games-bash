@@ -559,13 +559,18 @@ handle_bal_cmd() {
     usearch=":$1"
   fi
   eqtx=$( find ~/ledger -name '*.d*' | grep "\.d[bat]*$" | while read line ; do echo include $line ; done | ledger -f - --flat bal ^.*:gg$usearch$ ^gg:.*$usearch$ )
-  allbutguldtotal=$( printf "%s" "$eqtx" | grep -v guld:Income:register:group:gg: | grep -v GULD$ )
+  allbutguldtotal=$( printf "%s" "$eqtx" | grep -v GULD$ )
   if [ "$MYOS" = "Darwin" ] ; then
-    guldtotal=$( printf "%s" "$eqtx" | grep guld:Income:register:group:gg: | ggrep -o "[0-9.,-]*" )
+    guldtotal=$( printf "%s" "$eqtx" | grep GULD$ | ggrep -o "[0-9.,-]*" )
   else
-    guldtotal=$( printf "%s" "$eqtx" | grep guld:Income:register:group:gg: | grep -o "[0-9.,-]*" )
+    guldtotal=$( printf "%s" "$eqtx" | grep GULD$ | grep -o "[0-9.,-]*" )
   fi
-  guldtotal=$( echo $guldtotal*-1 | bc | sed 's/^\./0./' )
+  if [ "$guldtotal" != "" ] ; then
+    echo $guldtotal
+    guldtotal=$( echo $guldtotal*-1 | bc | sed 's/^\./0./' )
+  else
+    guldtotal=0
+  fi
   printf "%s\n%s GULD\n" "$allbutguldtotal" "$guldtotal"
 }
 
