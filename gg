@@ -407,8 +407,7 @@ handle_reveal_cmd() {
 
   pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
   pulled=$( git commit -m "reveal" 2>&1 )
-  EPOCH_TIME=$( date -u +%s )
-  TDATE=$( date -u +%Y/%m/%d )
+  EPOCH_TIME=$(( $EPOCH_TIME + 1 ))
   if [ $WINNER = $USER_NAME ] ; then
     handle_stake_cmd $GINSTANCE
   else
