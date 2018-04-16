@@ -489,9 +489,9 @@ handle_stake_cmd() {
     exit
   fi
   if [ "$MYOS" = "Darwin" ] ; then
-    STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep gg: | ggrep -o "[0-9.,]*" )
+    STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep "[^-][0-9.,]*" | ggrep -o "[0-9.,]*" )
   else
-    STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep gg: | grep -o "[0-9.,]*" )
+    STAKED=$( cat *.dat | ledger -f - equity gg:Equity:$WINNER | grep "[^-][0-9.,]*" | grep -o "[0-9.,]*" )
   fi
 
   if [ "$STAKED" == "" ] || [ "$( echo $STAKED>=0 | bc )" = "1" ]; then
