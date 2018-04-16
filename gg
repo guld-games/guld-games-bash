@@ -407,7 +407,6 @@ handle_reveal_cmd() {
 
   pulled=$( git add SECRET.txt signum.asc guess 2>&1 )
   pulled=$( git commit -m "reveal" 2>&1 )
-  EPOCH_TIME=$(( $EPOCH_TIME + 1 ))
   if [ $WINNER = $USER_NAME ] ; then
     handle_stake_cmd $GINSTANCE
   else
@@ -463,6 +462,13 @@ handle_stake_cmd() {
   if [ ! "$STAKED" == "" ] ; then
     echo "already staked this game"
     exit
+  fi
+
+  EPOCH_TIME_NEW=$( date -u +%s )
+  if [ "$EPOCH_TIME" = "$EPOCH_TIME_NEW" ] ; then
+    EPOCH_TIME=$(( $EPOCH_TIME + 1 ))
+  else
+    EPOCH_TIME=$EPOCH_TIME_NEW
   fi
 
   STAKE=$"$TDATE * GG LOTTERY $GINSTANCE STAKE
